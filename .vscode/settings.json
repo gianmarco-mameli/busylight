@@ -1,0 +1,35 @@
+{
+ "files.associations": {
+    "**/defaults/**/*": "ansible",
+    "**/tasks/**/*.yml": "ansible",
+    "**/handler/*.yml": "ansible",
+    "**/*_vars/**/*.yml": "ansible",
+    "**/roles/**/*.yml": "ansible",
+    "**/playbooks/**/*.yml": "ansible",
+    "**/*ansible*/**/*.yml": "ansible",
+    "**/vars/**/*.yml": "ansible",
+    "**/inventory/*/*": "ansible",
+    "cyw43_arch.h": "c",
+    "inet.h": "c",
+    "private.h": "c",
+    "gpio.h": "c"
+},
+ "cmake.statusbar.advanced": {
+  "debug": {
+      "visibility": "hidden"
+  },
+  "launch": {
+      "visibility": "hidden"
+  },
+  "build": {
+      "visibility": "hidden"
+  },
+  "buildTarget": {
+      "visibility": "hidden"
+  }
+},
+ "cmake.buildBeforeRun": true,
+ "cmake.configureOnOpen": true,
+ "C_Cpp.errorSquiggles": "enabled",
+ "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+}

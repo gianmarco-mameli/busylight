@@ -1,0 +1,3 @@
+export PICO_SDK_FETCH_FROM_GIT=https://github.com/raspberrypi/pico-sdk.git
+export PICO_EXTRAS_FETCH_FROM_GIT=https://github.com/raspberrypi/pico-extras.git
+cmake -DPICO_BOARD=pico_w ..

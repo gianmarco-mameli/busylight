@@ -2,3 +2,4 @@
 /build
 /reference
 *.gch
+private.h
