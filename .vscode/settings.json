@@ -12,7 +12,9 @@
     "cyw43_arch.h": "c",
     "inet.h": "c",
     "private.h": "c",
-    "gpio.h": "c"
+    "gpio.h": "c",
+    "picoled.hpp": "c",
+    "usb_descriptors.h": "c"
 },
  "cmake.statusbar.advanced": {
   "debug": {

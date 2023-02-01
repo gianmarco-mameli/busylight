@@ -3,179 +3,26 @@
 #include <string.h>
 
 #include "pico/stdlib.h"
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
+// #include "hardware/gpio.h"
+// #include "hardware/pwm.h"
+// #include "hardware/pio.h"
+// #include "hardware/clocks.h"
+#include "ws2812.pio.h"
 
 #include "bsp/board.h"
 #include "tusb.h"
 
 #include "usb_descriptors.h"
 
-#include "pico/cyw43_arch.h"
-#include <private.h>
-
-char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS;
-
-#define LED_1_RED_GPIO 5
-#define LED_1_GREEN_GPIO 7
-#define LED_1_BLUE_GPIO 6
-
-#define PWM_COUNT_TOP 100
-
-#include "lwip/apps/mqtt.h"
-#include "mqtt.c"
-
-#define MQTT_IP "192.168.1.1"
-mqtt_client_t* client;
-
-// static int inpub_id;
-
-// static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
-// {
-//   printf("Incoming publish at topic %s with total length %u\n", topic, (unsigned int)tot_len);
-
-//   /* Decode topic string into a user defined reference */
-//   if(strcmp(topic, "print_payload") == 0) {
-//     inpub_id = 0;
-//   } else if(topic[0] == 'A') {
-//     /* All topics starting with 'A' might be handled at the same way */
-//     inpub_id = 1;
-//   } else {
-//     /* For all other topics */
-//     inpub_id = 2;
-//   }
-// }
-
-// static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
-// {
-//   printf("Incoming publish payload with length %d, flags %u\n", len, (unsigned int)flags);
-
-//   if(flags & MQTT_DATA_FLAG_LAST) {
-//     /* Last fragment of payload received (or whole part if payload fits receive buffer
-//        See MQTT_VAR_HEADER_BUFFER_LEN)  */
-
-//     /* Call function or do action depending on reference, in this case inpub_id */
-//     if(inpub_id == 0) {
-//       /* Don't trust the publisher, check zero termination */
-//       if(data[len-1] == 0) {
-//         printf("mqtt_incoming_data_cb: %s\n", (const char *)data);
-//       }
-//     } else if(inpub_id == 1) {
-//       /* Call an 'A' function... */
-//     } else {
-//       printf("mqtt_incoming_data_cb: Ignoring payload...\n");
-//     }
-//   } else {
-//     /* Handle fragmented payload, store in buffer, write to file or whatever */
-//   }
-// }
-
-// static void mqtt_sub_request_cb(void *arg, err_t result)
-// {
-//   /* Just print the result code here for simplicity,
-//      normal behaviour would be to take some action if subscribe fails like
-//      notifying user, retry subscribe or disconnect from server */
-//   printf("Subscribe result: %d\n", result);
-// }
-
-static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
+void put_pixel(uint32_t pixel_grb)
 {
-  // err_t err;
-  // if(status == MQTT_CONNECT_ACCEPTED) {
-  //   printf("mqtt_connection_cb: Successfully connected\n");
-
-  //   /* Setup callback for incoming publish requests */
-  //   // mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, arg);
-
-  //   /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */
-  //   // err = mqtt_subscribe(client, "subtopic", 1, mqtt_sub_request_cb, arg);
-
-
-
-  //   // if(err != ERR_OK) {
-  //   //   printf("mqtt_subscribe return: %d\n", err);
-  //   // }
-  // } else {
-  //   printf("mqtt_connection_cb: Disconnected, reason: %d\n", status);
-
-  //   /* Its more nice to be connected, so try to reconnect */
-  //   // mqtt_init(&client);
-  // }
+    pio_sm_put_blocking(pio0, 0, pixel_grb << 8u);
 }
 
-/* The idea is to demultiplex topic and create some reference to be used in data callbacks
-   Example here uses a global variable, better would be to use a member in arg
-   If RAM and CPU budget allows it, the easiest implementation might be to just take a copy of
-   the topic string and use it in mqtt_incoming_data_cb
-*/
-
-/* Called when publish is complete either with sucess or failure */
-static void mqtt_pub_request_cb(void *arg, err_t result)
+void put_rgb(uint8_t red, uint8_t green, uint8_t blue)
 {
-  if(result != ERR_OK) {
-    printf("Publish result: %d\n", result);
-  }
-}
-
-void publish(mqtt_client_t *client, const char *topic, const char *payload, void *arg)
-{
-  err_t err;
-  u8_t qos = 1; /* 0 1 or 2, see MQTT specification */
-  u8_t retain = 0; /* No don't retain such crappy payload... */
-  err = mqtt_publish(client, topic, payload, strlen(payload), qos, retain, mqtt_pub_request_cb, arg);
-  if(err != ERR_OK) {
-    printf("Publish err: %d\n", err);
-  }
-}
-
-void mqtt_init(mqtt_client_t *client)
-{
-  ip_addr_t ip_addr;
-  ip4_addr_set_u32(&ip_addr, ipaddr_addr(MQTT_IP));
-
-  struct mqtt_connect_client_info_t ci;
-  err_t err;
-
-  /* Setup an empty client info structure */
-  memset(&ci, 0, sizeof(ci));
-
-  /* Minimal amount of information required is client identifier, so set it here */
-  ci.client_id = "busylight";
-  ci.will_topic = "busylight/status";
-  ci.will_msg = "connected";
-  ci.client_user = NULL;
-  ci.client_pass = NULL;
-  ci.keep_alive = 100;
-
-  /* Initiate client and connect to server, if this fails immediately an error code is returned
-     otherwise mqtt_connection_cb will be called with connection result after attempting
-     to establish a connection with the server.
-     For now MQTT version 3.1.1 is always used */
-
-  // client = mqtt_client_new();
-
-  // if (client != NULL){
-    err = mqtt_client_connect(client, &ip_addr, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void*, &ci), &ci);
-    while (err != ERR_OK)
-    {
-      sleep_ms(250);
-      err = mqtt_client_connect(client, &ip_addr, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void*, &ci), &ci);
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    }
-    while (!mqtt_client_is_connected(client)){
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-      // sleep_ms(250);
-    }
-  // }
-
-
-
-
-  /* For now just print the result code if something goes wrong */
-  // if(err != ERR_OK) {
-  //   printf("mqtt_connect return %d\n", err);
-  // }
+    uint32_t mask = (green << 16) | (red << 8) | (blue << 0);
+    put_pixel(mask);
 }
 
 //Function Prototypes
@@ -291,20 +138,7 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     }
     else if(bufsize == 64 && (buffer[0] == 0x10 || buffer[0] == 0x11)) {
         printf("DEBUG light command received:\n");
-        printf("DEBUG RED: %d \n", buffer[2]); //2 = red pwm value
-        printf("DEBUG GREEN: %d \n", buffer[3]); //3 = green pwm value
-        printf("DEBUG BLUE: %d \n", buffer[4]); //4 = blue pwm value
-        pwm_set_gpio_level(LED_1_RED_GPIO, buffer[2]);
-        pwm_set_gpio_level(LED_1_GREEN_GPIO, buffer[3]);
-        pwm_set_gpio_level(LED_1_BLUE_GPIO, buffer[4]);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-        printf("on\n");
-        publish(client,"busilight/r",buffer[2],"");
-        publish(client,"busilight/g",buffer[3],"");
-        publish(client,"busilight/b",buffer[4],"");
-        sleep_ms(500);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-        printf("off\n");
+        put_rgb((int)buffer[3], (int)buffer[2], (int)buffer[4]);
     }
     else {
         printf("DEBUG, not matching setup string BUFFER CONTENT:\n");
@@ -320,40 +154,17 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
     (void) bufsize;
 }
 
-
-
-
-
-
-
-
-
 int main() {
   stdio_init_all(); //Initialize debug interface
 
-  if (cyw43_arch_init_with_country(CYW43_COUNTRY_ITALY)) {
-      printf("failed to initialise\n");
-      return 1;
-  }
-  printf("initialised\n");
+  PIO pio = pio0;
+  int sm = 0;
+  uint offset = pio_add_program(pio, &ws2812_program);
+  uint8_t cnt = 0;
 
-  cyw43_arch_enable_sta_mode();
+  puts("RP2040-Zero WS2812 Test");
 
-  if (cyw43_arch_wifi_connect_timeout_ms(ssid, pass, CYW43_AUTH_WPA2_AES_PSK, 10000)) {
-      printf("failed to connect\n");
-      return 1;
-  }
-  printf("connected\n");
-
-  sleep_ms(1000);
-
-  client = mqtt_client_new();
-
-  mqtt_init(client);
-
-  publish(client,"busylight/r","0","");
-  publish(client,"busylight/g","0","");
-  publish(client,"busylight/b","0","");
+  ws2812_program_init(pio, sm, offset, 16, 800000, true);
 
   printf("DEBUG: starting up buildcomics HID device...\n");
 
@@ -361,25 +172,22 @@ int main() {
   tusb_init();
   printf("DEBUG: HID Device initialized\n");
 
-  // setup LED PWM
-  pwm_config cfg = pwm_get_default_config();
-  pwm_config_set_wrap(&cfg, PWM_COUNT_TOP);
-  pwm_init(pwm_gpio_to_slice_num(LED_1_RED_GPIO), &cfg, true);
-  pwm_init(pwm_gpio_to_slice_num(LED_1_GREEN_GPIO), &cfg, true);
-  pwm_init(pwm_gpio_to_slice_num(LED_1_BLUE_GPIO), &cfg, true);
-
-  gpio_set_function(LED_1_RED_GPIO, GPIO_FUNC_PWM);
-  gpio_set_function(LED_1_GREEN_GPIO, GPIO_FUNC_PWM);
-  gpio_set_function(LED_1_BLUE_GPIO, GPIO_FUNC_PWM);
-
-  //Cycle through led colours as part of startup test
-  pwm_set_gpio_level(LED_1_RED_GPIO, 1 * (PWM_COUNT_TOP + 1));
-  sleep_ms(500);
-  pwm_set_gpio_level(LED_1_RED_GPIO, 0 );
-  pwm_set_gpio_level(LED_1_GREEN_GPIO, 1 * (PWM_COUNT_TOP + 1));
-  sleep_ms(500);
-  pwm_set_gpio_level(LED_1_GREEN_GPIO, 0 );
-  pwm_set_gpio_level(LED_1_BLUE_GPIO, 1 * (PWM_COUNT_TOP + 1));
+  for (cnt = 0; cnt < 0xff; cnt++)
+  {
+      put_rgb(0, 0xff , 0);
+      sleep_ms(3);
+  }
+  for (cnt = 0; cnt < 0xff; cnt++)
+  {
+      put_rgb(0xff - cnt, 0, cnt);
+      sleep_ms(3);
+  }
+  for (cnt = 0; cnt < 0xff; cnt++)
+  {
+      put_rgb(0, cnt, 0xff - cnt);
+      sleep_ms(3);
+  }
+  put_rgb(0, 0, 0);
 
   // MAIN LOOP
   while (true){
