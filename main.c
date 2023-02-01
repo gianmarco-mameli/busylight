@@ -27,7 +27,7 @@ char pass[] = SECRET_PASS;
 #include "mqtt.c"
 
 #define MQTT_IP "192.168.1.1"
-mqtt_client_t* client;
+mqtt_client_t *client;
 
 // static int inpub_id;
 
@@ -91,8 +91,6 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
   //   /* Subscribe to a topic named "subtopic" with QoS level 1, call mqtt_sub_request_cb with result */
   //   // err = mqtt_subscribe(client, "subtopic", 1, mqtt_sub_request_cb, arg);
 
-
-
   //   // if(err != ERR_OK) {
   //   //   printf("mqtt_subscribe return: %d\n", err);
   //   // }
@@ -113,7 +111,8 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
 /* Called when publish is complete either with sucess or failure */
 static void mqtt_pub_request_cb(void *arg, err_t result)
 {
-  if(result != ERR_OK) {
+  if (result != ERR_OK)
+  {
     printf("Publish result: %d\n", result);
   }
 }
@@ -121,10 +120,11 @@ static void mqtt_pub_request_cb(void *arg, err_t result)
 void publish(mqtt_client_t *client, const char *topic, const char *payload, void *arg)
 {
   err_t err;
-  u8_t qos = 1; /* 0 1 or 2, see MQTT specification */
+  u8_t qos = 1;    /* 0 1 or 2, see MQTT specification */
   u8_t retain = 0; /* No don't retain such crappy payload... */
   err = mqtt_publish(client, topic, payload, strlen(payload), qos, retain, mqtt_pub_request_cb, arg);
-  if(err != ERR_OK) {
+  if (err != ERR_OK)
+  {
     printf("Publish err: %d\n", err);
   }
 }
@@ -156,21 +156,19 @@ void mqtt_init(mqtt_client_t *client)
   // client = mqtt_client_new();
 
   // if (client != NULL){
-    err = mqtt_client_connect(client, &ip_addr, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void*, &ci), &ci);
-    while (err != ERR_OK)
-    {
-      sleep_ms(250);
-      err = mqtt_client_connect(client, &ip_addr, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void*, &ci), &ci);
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    }
-    while (!mqtt_client_is_connected(client)){
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-      // sleep_ms(250);
-    }
+  err = mqtt_client_connect(client, &ip_addr, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void *, &ci), &ci);
+  while (err != ERR_OK)
+  {
+    sleep_ms(250);
+    err = mqtt_client_connect(client, &ip_addr, MQTT_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void *, &ci), &ci);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+  }
+  while (!mqtt_client_is_connected(client))
+  {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    // sleep_ms(250);
+  }
   // }
-
-
-
 
   /* For now just print the result code if something goes wrong */
   // if(err != ERR_OK) {
@@ -178,50 +176,57 @@ void mqtt_init(mqtt_client_t *client)
   // }
 }
 
-//Function Prototypes
+// Function Prototypes
 void btn_callback(uint gpio, uint32_t events);
 void hid_task(void);
 
 // Invoked when device is mounted
-void tud_mount_cb(void) {
-    printf("DEBUG: MOUNTED\n");
+void tud_mount_cb(void)
+{
+  printf("DEBUG: MOUNTED\n");
 }
 
 // Invoked when device is unmounted
-void tud_umount_cb(void) {
-    printf("DEBUG: Unmounted\n");
+void tud_umount_cb(void)
+{
+  printf("DEBUG: Unmounted\n");
 }
 
 // Invoked when usb bus is suspended
 // remote_wakeup_en : if host allow us  to perform remote wakeup
 // Within 7ms, device must draw an average of current less than 2.5 mA from bus
-void tud_suspend_cb(bool remote_wakeup_en) {
-    (void) remote_wakeup_en;
-    printf("DEBUG: Suspended\n");
+void tud_suspend_cb(bool remote_wakeup_en)
+{
+  (void)remote_wakeup_en;
+  printf("DEBUG: Suspended\n");
 }
 
 // Invoked when usb bus is resumed
-void tud_resume_cb(void) {
-    printf("DEBUG: Resumed Mounted\n");
+void tud_resume_cb(void)
+{
+  printf("DEBUG: Resumed Mounted\n");
 }
 
 // USB HID main task
-void hid_task(void) {
-    // Poll every 10ms
-    const uint32_t interval_ms = 10;
-    static uint32_t start_ms = 0;
+void hid_task(void)
+{
+  // Poll every 10ms
+  const uint32_t interval_ms = 10;
+  static uint32_t start_ms = 0;
 
-    if (board_millis() - start_ms < interval_ms) return; // not enough time
-    start_ms += interval_ms;
+  if (board_millis() - start_ms < interval_ms)
+    return; // not enough time
+  start_ms += interval_ms;
 
-    uint32_t const btn = 1;
+  uint32_t const btn = 1;
 
-    // Remote wakeup
-    if (tud_suspended() && btn) {
-        // Wake up host if we are in suspend mode
-        // and REMOTE_WAKEUP feature is enabled by host
-        tud_remote_wakeup();
-    }
+  // Remote wakeup
+  if (tud_suspended() && btn)
+  {
+    // Wake up host if we are in suspend mode
+    // and REMOTE_WAKEUP feature is enabled by host
+    tud_remote_wakeup();
+  }
 }
 
 // // Invoked when received control request with VENDOR TYPE
@@ -234,114 +239,130 @@ void hid_task(void) {
 // }
 
 // Invoked when vendor control request is complete
-bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const * request) {
-    // TODO not Implemented
-    printf("DEBUG: tud_vendor_control_complete_cb triggered\n");
-    (void) rhport;
-    (void) request;
+bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const *request)
+{
+  // TODO not Implemented
+  printf("DEBUG: tud_vendor_control_complete_cb triggered\n");
+  (void)rhport;
+  (void)request;
 
-    return 0;
+  return 0;
 }
 
-//attempt to use:
-// Invoked when received GET_REPORT control request
-// Application must fill buffer report's content and return its length.
-// Return zero will cause the stack to STALL request
-uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
-    // TODO not Implemented
-    printf("DEBUG: tud_hid_get_report_cb triggered\n");
-    (void) report_id;
-    (void) report_type;
-    (void) buffer;
-    (void) reqlen;
+// attempt to use:
+//  Invoked when received GET_REPORT control request
+//  Application must fill buffer report's content and return its length.
+//  Return zero will cause the stack to STALL request
+uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen)
+{
+  // TODO not Implemented
+  printf("DEBUG: tud_hid_get_report_cb triggered\n");
+  (void)report_id;
+  (void)report_type;
+  (void)buffer;
+  (void)reqlen;
 
-    return 0;
+  return 0;
 }
 
 // Invoked when received SET_REPORT control request or
 // received data on OUT endpoint ( Report ID = 0, Type = 0 )
-void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {    printf("DEBUG: tud_hid_set_report_cb triggered\n");
-    printf("DEBUG: report_id: %X\n", report_id);
-    printf("DEBUG: report_type: %X\n", report_type);
-    printf("DEBUG: bufsize: %d\n", bufsize);
-    const char setup_request_string[] = {
-        0x8f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x06, 0x04, 0x55, 0xff, 0xff, 0xff, 0x03, 0xeb
-    };
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
+{
+  printf("DEBUG: tud_hid_set_report_cb triggered\n");
+  printf("DEBUG: report_id: %X\n", report_id);
+  printf("DEBUG: report_type: %X\n", report_type);
+  printf("DEBUG: bufsize: %d\n", bufsize);
+  const char setup_request_string[] = {
+      0x8f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x06, 0x04, 0x55, 0xff, 0xff, 0xff, 0x03, 0xeb};
 
-    if (strcmp(buffer, setup_request_string) == 0) {
-        printf("DEBUG: Matching setup request string, answering\n");
-        const char setup_request_return[] = {
-            0x30, 0x30, 0x30, 0x31, 0x50, 0x4c, 0x45, 0x4e,
-            0x4f, 0x4d, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31,
-            0x44, 0x41, 0x53, 0x41, 0x4e, 0x30, 0x30, 0x30,
-            0x32, 0x30, 0x31, 0x35, 0x30, 0x35, 0x32, 0x38,
-            0x30, 0x32, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30
-        };
-        tud_hid_report(0, &setup_request_return, sizeof(setup_request_return));
-    }
-    else if(bufsize == 64 && (buffer[0] == 0x10 || buffer[0] == 0x11)) {
-        printf("DEBUG light command received:\n");
-        printf("DEBUG RED: %d \n", buffer[2]); //2 = red pwm value
-        printf("DEBUG GREEN: %d \n", buffer[3]); //3 = green pwm value
-        printf("DEBUG BLUE: %d \n", buffer[4]); //4 = blue pwm value
-        pwm_set_gpio_level(LED_1_RED_GPIO, buffer[2]);
-        pwm_set_gpio_level(LED_1_GREEN_GPIO, buffer[3]);
-        pwm_set_gpio_level(LED_1_BLUE_GPIO, buffer[4]);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-        printf("on\n");
-        publish(client,"busilight/r",buffer[2],"");
-        publish(client,"busilight/g",buffer[3],"");
-        publish(client,"busilight/b",buffer[4],"");
-        sleep_ms(500);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-        printf("off\n");
-    }
-    else {
-        printf("DEBUG, not matching setup string BUFFER CONTENT:\n");
-        for (int i = 0; i < bufsize; i++) {
-            printf("%02X ", buffer[i]);
-        }
-        printf("\n - End \n");
-    }
+  if (strcmp(buffer, setup_request_string) == 0)
+  {
+    printf("DEBUG: Matching setup request string, answering\n");
+    const char setup_request_return[] = {
+        0x30, 0x30, 0x30, 0x31, 0x50, 0x4c, 0x45, 0x4e,
+        0x4f, 0x4d, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31,
+        0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31,
+        0x44, 0x41, 0x53, 0x41, 0x4e, 0x30, 0x30, 0x30,
+        0x32, 0x30, 0x31, 0x35, 0x30, 0x35, 0x32, 0x38,
+        0x30, 0x32, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30,
+        0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
+        0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30};
+    tud_hid_report(0, &setup_request_return, sizeof(setup_request_return));
+  }
+  else if (bufsize == 64 && (buffer[0] == 0x10 || buffer[0] == 0x11))
+  {
+    printf("DEBUG light command received:\n");
+    printf("DEBUG RED: %d \n", buffer[2]);   // 2 = red pwm value
+    printf("DEBUG GREEN: %d \n", buffer[3]); // 3 = green pwm value
+    printf("DEBUG BLUE: %d \n", buffer[4]);  // 4 = blue pwm value
+    pwm_set_gpio_level(LED_1_RED_GPIO, buffer[2]);
+    pwm_set_gpio_level(LED_1_GREEN_GPIO, buffer[3]);
+    pwm_set_gpio_level(LED_1_BLUE_GPIO, buffer[4]);
 
-    (void) report_id;
-    (void) report_type;
-    (void) buffer;
-    (void) bufsize;
+    char temp_r[16];
+    char temp_g[16];
+    char temp_b[16];
+
+    // sprintf()
+    // unsigned char *r = String(buffer[2]).c_str();
+    char *r = itoa(buffer[2], temp_r, 10);
+    char *g = itoa(buffer[3], temp_g, 10);
+    char *b = itoa(buffer[4], temp_b, 10);
+    // unsigned char *b = &buffer[4];
+
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    printf("on\n");
+    publish(client, "busylight/r", r, "");
+    publish(client, "busylight/g", g, "");
+    publish(client, "busylight/b", b, "");
+
+    // publish(client,"busylight/buffer","pippo","");
+
+    sleep_ms(500);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    printf("off\n");
+  }
+  else
+  {
+    printf("DEBUG, not matching setup string BUFFER CONTENT:\n");
+    for (int i = 0; i < bufsize; i++)
+    {
+      printf("%02X ", buffer[i]);
+    }
+    printf("\n - End \n");
+  }
+
+  (void)report_id;
+  (void)report_type;
+  (void)buffer;
+  (void)bufsize;
 }
 
+int main()
+{
+  stdio_init_all(); // Initialize debug interface
 
-
-
-
-
-
-
-
-int main() {
-  stdio_init_all(); //Initialize debug interface
-
-  if (cyw43_arch_init_with_country(CYW43_COUNTRY_ITALY)) {
-      printf("failed to initialise\n");
-      return 1;
+  if (cyw43_arch_init_with_country(CYW43_COUNTRY_ITALY))
+  {
+    printf("failed to initialise\n");
+    return 1;
   }
   printf("initialised\n");
 
   cyw43_arch_enable_sta_mode();
 
-  if (cyw43_arch_wifi_connect_timeout_ms(ssid, pass, CYW43_AUTH_WPA2_AES_PSK, 10000)) {
-      printf("failed to connect\n");
-      return 1;
+  if (cyw43_arch_wifi_connect_timeout_ms(ssid, pass, CYW43_AUTH_WPA2_AES_PSK, 10000))
+  {
+    printf("failed to connect\n");
+    return 1;
   }
   printf("connected\n");
 
@@ -351,9 +372,9 @@ int main() {
 
   mqtt_init(client);
 
-  publish(client,"busylight/r","0","");
-  publish(client,"busylight/g","0","");
-  publish(client,"busylight/b","0","");
+  // publish(client,"busylight/r","0","");
+  // publish(client,"busylight/g","0","");
+  // publish(client,"busylight/b","0","");
 
   printf("DEBUG: starting up buildcomics HID device...\n");
 
@@ -372,19 +393,20 @@ int main() {
   gpio_set_function(LED_1_GREEN_GPIO, GPIO_FUNC_PWM);
   gpio_set_function(LED_1_BLUE_GPIO, GPIO_FUNC_PWM);
 
-  //Cycle through led colours as part of startup test
+  // Cycle through led colours as part of startup test
   pwm_set_gpio_level(LED_1_RED_GPIO, 1 * (PWM_COUNT_TOP + 1));
   sleep_ms(500);
-  pwm_set_gpio_level(LED_1_RED_GPIO, 0 );
+  pwm_set_gpio_level(LED_1_RED_GPIO, 0);
   pwm_set_gpio_level(LED_1_GREEN_GPIO, 1 * (PWM_COUNT_TOP + 1));
   sleep_ms(500);
-  pwm_set_gpio_level(LED_1_GREEN_GPIO, 0 );
+  pwm_set_gpio_level(LED_1_GREEN_GPIO, 0);
   pwm_set_gpio_level(LED_1_BLUE_GPIO, 1 * (PWM_COUNT_TOP + 1));
 
   // MAIN LOOP
-  while (true){
-      hid_task();
-      tud_task(); // tinyusb device task
+  while (true)
+  {
+    hid_task();
+    tud_task(); // tinyusb device task
   }
   return 0;
 }
