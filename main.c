@@ -18,8 +18,8 @@ char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 
 #define LED_1_RED_GPIO 5
-#define LED_1_GREEN_GPIO 7
-#define LED_1_BLUE_GPIO 6
+#define LED_1_GREEN_GPIO 6
+#define LED_1_BLUE_GPIO 7
 
 #define PWM_COUNT_TOP 100
 
@@ -353,28 +353,34 @@ int main()
   if (cyw43_arch_init_with_country(CYW43_COUNTRY_ITALY))
   {
     printf("failed to initialise\n");
-    return 1;
+    // return 1;
   }
-  printf("initialised\n");
-
-  cyw43_arch_enable_sta_mode();
-
-  if (cyw43_arch_wifi_connect_timeout_ms(ssid, pass, CYW43_AUTH_WPA2_AES_PSK, 10000))
+  else
   {
-    printf("failed to connect\n");
-    return 1;
+    printf("initialised\n");
+
+    cyw43_arch_enable_sta_mode();
+
+    if (cyw43_arch_wifi_connect_timeout_ms(ssid, pass, CYW43_AUTH_WPA2_AES_PSK, 5000))
+    {
+      printf("failed to connect\n");
+      // return 1;
+    }
+    else
+    {
+      printf("connected\n");
+
+      sleep_ms(1000);
+
+      client = mqtt_client_new();
+
+      mqtt_init(client);
+
+      publish(client, "busylight/r", "0", "");
+      publish(client, "busylight/g", "0", "");
+      publish(client, "busylight/b", "0", "");
+    }
   }
-  printf("connected\n");
-
-  sleep_ms(1000);
-
-  client = mqtt_client_new();
-
-  mqtt_init(client);
-
-  // publish(client,"busylight/r","0","");
-  // publish(client,"busylight/g","0","");
-  // publish(client,"busylight/b","0","");
 
   printf("DEBUG: starting up buildcomics HID device...\n");
 
@@ -395,12 +401,14 @@ int main()
 
   // Cycle through led colours as part of startup test
   pwm_set_gpio_level(LED_1_RED_GPIO, 1 * (PWM_COUNT_TOP + 1));
-  sleep_ms(500);
+  sleep_ms(300);
   pwm_set_gpio_level(LED_1_RED_GPIO, 0);
   pwm_set_gpio_level(LED_1_GREEN_GPIO, 1 * (PWM_COUNT_TOP + 1));
-  sleep_ms(500);
+  sleep_ms(300);
   pwm_set_gpio_level(LED_1_GREEN_GPIO, 0);
   pwm_set_gpio_level(LED_1_BLUE_GPIO, 1 * (PWM_COUNT_TOP + 1));
+  sleep_ms(300);
+  pwm_set_gpio_level(LED_1_BLUE_GPIO, 0);
 
   // MAIN LOOP
   while (true)
