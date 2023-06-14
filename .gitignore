@@ -3,3 +3,5 @@
 /reference
 *.gch
 private.h
+.pio
+.vscode
