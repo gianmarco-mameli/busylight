@@ -1,0 +1,261 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2019 Ha Thach (tinyusb.org)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ */
+
+#include "tusb.h"
+// #include "usb_descriptors.h"
+
+/* A combination of interfaces must have a unique product id, since PC will save device driver after the first plug.
+ * Same VID/PID with different interface e.g MSC (first), then CDC (later) will possibly cause system error on PC.
+ *
+ * Auto ProductID layout's Bitmap:
+ *   [MSB]         HID | MSC | CDC          [LSB]
+ */
+#define _PID_MAP(itf, n) ((CFG_TUD_##itf) << (n))
+#define USB_PID (0x4000 | _PID_MAP(CDC, 0) | _PID_MAP(MSC, 1) | _PID_MAP(HID, 2) | \
+                 _PID_MAP(MIDI, 3) | _PID_MAP(VENDOR, 4))
+
+//--------------------------------------------------------------------+
+// Device Descriptors
+//--------------------------------------------------------------------+
+tusb_desc_device_t const desc_device =
+    {
+        .bLength = sizeof(tusb_desc_device_t),
+        .bDescriptorType = TUSB_DESC_DEVICE,
+        .bcdUSB = 0x0200,
+        .bDeviceClass = 0x00,
+        .bDeviceSubClass = 0x00,
+        .bDeviceProtocol = 0x00,
+        .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
+
+        .idVendor = 0x27bb,
+        .idProduct = 0x3bcd,
+        .bcdDevice = 0x0100,
+
+        .iManufacturer = 0x01,
+        .iProduct = 0x02,
+        .iSerialNumber = 0x03,
+
+        .bNumConfigurations = 0x01};
+
+// Invoked when received GET DEVICE DESCRIPTOR
+// Application return pointer to descriptor
+uint8_t const *tud_descriptor_device_cb(void)
+{
+    return (uint8_t const *)&desc_device;
+}
+
+//--------------------------------------------------------------------+
+// HID Report Descriptor
+//--------------------------------------------------------------------+
+uint8_t const desc_hid_report[] =
+    {
+        0x06,
+        0x00,
+        0xFF, /* USAGE_PAGE (Custom UC Display)  */
+        HID_USAGE(0x01),
+        HID_COLLECTION(HID_COLLECTION_APPLICATION), /* Report ID if any */
+        HID_USAGE_MIN(0x40),
+        HID_USAGE_MAX(0x40),
+        HID_LOGICAL_MIN(0),
+        0x26,
+        0xFF,
+        0x00, /* Logical Maximum (255) */
+        HID_REPORT_SIZE(8),
+        HID_REPORT_COUNT(64),
+        HID_INPUT(HID_DATA),
+        HID_USAGE_MIN(0x40),
+        HID_USAGE_MAX(0x40),
+        HID_OUTPUT(HID_DATA),
+        HID_COLLECTION_END,
+};
+
+// Invoked when received GET HID REPORT DESCRIPTOR
+// Application return pointer to descriptor
+// Descriptor contents must exist long enough for transfer to complete
+uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance)
+{
+    printf("DEBUG: tud_hid_descriptor_report_cb triggered\n");
+    return desc_hid_report;
+}
+
+//--------------------------------------------------------------------+
+// Configuration Descriptor
+//--------------------------------------------------------------------+
+
+enum
+{
+    ITF_NUM_HID,
+    ITF_NUM_TOTAL
+};
+
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN)
+#define EPNUM_HID 0x81
+uint8_t const desc_configuration[] =
+    {
+        // Config number, interface count, string index, total length, attribute, power in mA
+        TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
+
+        // Interface number, string index, protocol, report descriptor len, EP In & Out address, size & polling interval
+        TUD_HID_DESCRIPTOR(ITF_NUM_HID, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report), EPNUM_HID,
+                           CFG_TUD_HID_EP_BUFSIZE, 10)};
+
+// Invoked when received GET CONFIGURATION DESCRIPTOR
+// Application return pointer to descriptor
+// Descriptor contents must exist long enough for transfer to complete
+uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
+{
+    printf("DEBUG: tud_descriptor_configuration_cb triggered\n");
+    printf("index: %X\n", index);
+    (void)index; // for multiple configurations
+    return desc_configuration;
+}
+
+//--------------------------------------------------------------------+
+// String Descriptors
+//--------------------------------------------------------------------+
+
+// array of pointer to string descriptors
+char const *string_desc_arr[] =
+    {
+        //(const char[]) {0x00, 0x00}, // 0: is supported language is English (0x0409)
+        (const char[]){0x00}, // 0: is supported language is English (0x0409)
+        "PLENOM APS",         // 1: Manufacturer
+        "BUSYLIGHT",          // 2: Product
+        "0",                  // 3: Serials, should use chip ID
+};
+
+static uint16_t _desc_str[32];
+
+// Invoked when received GET STRING DESCRIPTOR request
+// Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
+uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid)
+{
+    printf("DEBUG: tud_descriptor_string_cb triggered\n");
+    printf("index: %X\n", index);
+    printf("langid: %X\n", langid);
+    (void)langid;
+
+    uint8_t chr_count;
+
+    if (index == 0)
+    {
+        memcpy(&_desc_str[1], string_desc_arr[0], 2);
+        chr_count = 1;
+    }
+    else
+    {
+        // Convert ASCII string into UTF-16
+
+        if (!(index < sizeof(string_desc_arr) / sizeof(string_desc_arr[0])))
+            return NULL;
+
+        const char *str = string_desc_arr[index];
+
+        // Cap at max char
+        chr_count = strlen(str);
+        if (chr_count > 31)
+            chr_count = 31;
+
+        for (uint8_t i = 0; i < chr_count; i++)
+        {
+            _desc_str[1 + i] = str[i];
+        }
+    }
+
+    // first byte is length (including header), second byte is string type
+    _desc_str[0] = (TUSB_DESC_STRING << 8) | (2 * chr_count + 2);
+
+    return _desc_str;
+}
+
+//attempt to use:
+// Invoked when received GET_REPORT control request
+// Application must fill buffer report's content and return its length.
+// Return zero will cause the stack to STALL request
+uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t *buffer, uint16_t reqlen) {
+    // TODO not Implemented
+    printf("DEBUG: tud_hid_get_report_cb triggered\n");
+    (void) instance;
+    (void) report_id;
+    (void) report_type;
+    (void) buffer;
+    (void) reqlen;
+
+    return 0;
+}
+// Invoked when received SET_REPORT control request or
+// received data on OUT endpoint ( Report ID = 0, Type = 0 )
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize) {
+    printf("DEBUG: tud_hid_set_report_cb triggered\n");
+    printf("DEBUG: report_id: %X\n", report_id);
+    printf("DEBUG: report_type: %X\n", report_type);
+    printf("DEBUG: bufsize: %d\n", bufsize);
+    const char setup_request_string[] = {
+        0x8f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x06, 0x04, 0x55, 0xff, 0xff, 0xff, 0x03, 0xeb
+    };
+
+    if (strcmp(buffer, setup_request_string) == 0) {
+        printf("DEBUG: Matching setup request string, answering\n");
+        const char setup_request_return[] = {
+            0x30, 0x30, 0x30, 0x31, 0x50, 0x4c, 0x45, 0x4e,
+            0x4f, 0x4d, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31,
+            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31,
+            0x44, 0x41, 0x53, 0x41, 0x4e, 0x30, 0x30, 0x30,
+            0x32, 0x30, 0x31, 0x35, 0x30, 0x35, 0x32, 0x38,
+            0x30, 0x32, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30,
+            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
+            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30
+        };
+        tud_hid_report(0, &setup_request_return, sizeof(setup_request_return));
+    }
+    else if(bufsize == 64 && (buffer[0] == 0x10 || buffer[0] == 0x11)) {
+        printf("DEBUG light command received:\n");
+        printf("DEBUG RED: %d \n", buffer[2]); //2 = red pwm value
+        printf("DEBUG GREEN: %d \n", buffer[3]); //3 = green pwm value
+        printf("DEBUG BLUE: %d \n", buffer[4]); //4 = blue pwm value
+        // pwm_set_gpio_level(LED_1_RED_GPIO, buffer[2]);
+        // pwm_set_gpio_level(LED_1_GREEN_GPIO, buffer[3]);
+        // pwm_set_gpio_level(LED_1_BLUE_GPIO, buffer[4]);
+    }
+    else {
+        printf("DEBUG, not matching setup string BUFFER CONTENT:\n");
+        for (int i = 0; i < bufsize; i++) {
+            printf("%02X ", buffer[i]);
+        }
+        printf("\n - End \n");
+    }
+
+    (void) report_id;
+    (void) report_type;
+    (void) buffer;
+    (void) bufsize;
+}
